@@ -1,0 +1,9 @@
+streamlit
+librosa
+numpy
+sounddevice
+scipy
+torch
+transformers
+nltk
+SpeechRecognition
