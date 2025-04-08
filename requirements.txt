@@ -7,3 +7,4 @@ torch
 transformers
 nltk
 SpeechRecognition
+portaudio
