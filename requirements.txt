@@ -11,3 +11,5 @@ soundfile==0.13.1
 transformers>=4.26.0
 sounddevice==0.5.1
 altair==4.0.0
+transformers
+scipy
