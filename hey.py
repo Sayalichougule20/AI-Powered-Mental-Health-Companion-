@@ -10,9 +10,10 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from scipy.special import softmax
 import speech_recognition as sr
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 
 st.set_page_config(page_title="EmotiCare - Emotion Based AI Chatbot", 
-                   page_icon="🎙️", 
+                   page_icon="🎙", 
                    layout="centered")
 
 # Download NLTK resources
@@ -53,19 +54,12 @@ video_links = {
 
 # ---------------- Functions ----------------
 
-def record_audio(filename="user_voice.wav", duration=5, fs=44100):
-    st.write("🎤 Recording... Speak now!")
-    audio = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype=np.int16)
-    sd.wait()
-    wav.write(filename, fs, audio)
-    st.success("✅ Recording saved!")
-
-def speech_to_text(file_path):
+def speech_to_text_from_audio(audio_data):
     recognizer = sr.Recognizer()
-    with sr.AudioFile(file_path) as source:
-        audio = recognizer.record(source)
+    with sr.AudioData(audio_data.tobytes(), 16000, 2) as source_audio:
         try:
-            return recognizer.recognize_google(audio)
+            text = recognizer.recognize_google(source_audio)
+            return text
         except sr.UnknownValueError:
             return None
 
@@ -80,6 +74,12 @@ def predict_bert_emotion(text):
 def generate_response(emotion):
     return random.choice(emotion_responses.get(emotion, ["I'm here to chat! 😊"]))
 
+# ---------------- WebRTC Audio Processor ----------------
+
+class AudioProcessor(AudioProcessorBase):
+    def recv(self, frame):
+        return np.array(frame.to_ndarray())  # Return the raw audio frame as ndarray
+
 # ---------------- UI ----------------
 
 st.markdown("""
@@ -90,7 +90,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown('<p class="title">🎙️ EmotiCare - Emotion Based AI Chatbot</p>', unsafe_allow_html=True)
+st.markdown('<p class="title">🎙 EmotiCare - Emotion Based AI Chatbot</p>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">Detect emotions from your voice or text and receive personalized responses!</p>', unsafe_allow_html=True)
 
 st.sidebar.title("🔍 Choose Input Method")
@@ -102,38 +102,39 @@ if input_type == "Text":
         if user_text:
             with st.spinner("🔍 Analyzing Emotion..."):
                 detected_emotion = predict_bert_emotion(user_text)
-            st.markdown(f"### 🎭 Detected Emotion: **{detected_emotion.capitalize()}**")
+            st.markdown(f"### 🎭 Detected Emotion: *{detected_emotion.capitalize()}*")
             st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
             if detected_emotion in video_links:
                 st.video(video_links[detected_emotion])
         else:
-            st.warning("⚠️ Please enter some text.")
+            st.warning("⚠ Please enter some text.")
 
 elif input_type == "Voice":
-    if st.button("🎙️ Record Voice"):
-        record_audio("user_voice.wav")
-
-    if st.button("Analyze Voice Emotion 🎭"):
-        with st.spinner("🎧 Processing Audio..."):
-            try:
-                text = speech_to_text("user_voice.wav")
-                if text:
-                    st.markdown(f"### 📝 **Transcribed Text:** _{text}_")
-                    detected_emotion = predict_bert_emotion(text)
-                    st.markdown(f"### 🎭 Detected Emotion: **{detected_emotion.capitalize()}**")
-                    st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
-                    if detected_emotion in video_links:
-                        st.video(video_links[detected_emotion])
-                else:
-                    st.warning("⚠️ Could not detect any speech. Please try again.")
-            except Exception as e:
-                st.error(f"❌ Error: {e}")
+    st.write("🎙 Record your voice:")
+    webrtc_ctx = webrtc_streamer(
+        key="audio-input-demo",
+        mode=WebRtcMode.SENDRECV,
+        audio_processor_factory=AudioProcessor,
+        rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+    )
+    
+    if webrtc_ctx.state.playing:
+        audio_data = webrtc_ctx.audio_receiver.get_audio()
+        if audio_data is not None:
+            st.write("🎧 Processing audio...")
+            text = speech_to_text_from_audio(audio_data)
+            if text:
+                st.markdown(f"### 📝 *Transcribed Text:* {text}")
+                detected_emotion = predict_bert_emotion(text)
+                st.markdown(f"### 🎭 Detected Emotion: *{detected_emotion.capitalize()}*")
+                st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
+                if detected_emotion in video_links:
+                    st.video(video_links[detected_emotion])
+            else:
+                st.warning("⚠ Could not detect any speech. Please try again.")
 
 # ---------------- Sidebar Features ----------------
 st.sidebar.markdown("## 🌟 Features")
 st.sidebar.write("✅ Detect emotion from text or voice")  
 st.sidebar.write("🤖 AI-generated chatbot responses")  
 st.sidebar.write("📺 Video recommendations based on emotion")
-
-
-
