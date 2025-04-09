@@ -10,7 +10,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from scipy.special import softmax
 import speech_recognition as sr
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
+import io
 
 st.set_page_config(page_title="EmotiCare - Emotion Based AI Chatbot", 
                    page_icon="🎙", 
@@ -73,11 +73,35 @@ def predict_bert_emotion(text):
 def generate_response(emotion):
     return random.choice(emotion_responses.get(emotion, ["I'm here to chat! 😊"]))
 
-# ---------------- WebRTC Audio Processor ----------------
+def record_audio(duration=5, samplerate=16000):
+    """ Record audio using sounddevice library and specify input device """
+    st.write("🎙 Recording your voice...")
 
-class AudioProcessor(AudioProcessorBase):
-    def recv(self, frame):
-        return np.array(frame.to_ndarray())  # Return the raw audio frame as ndarray
+    # List available devices and check if there are any input devices
+    devices = sd.query_devices()
+    if not devices:  # If no devices are found
+        st.error("⚠ No audio input devices found. Please check your microphone.")
+        return None
+
+    # Display available devices for debugging
+    st.write(devices)  # Print devices in Streamlit UI
+
+    # Try to select the first available input device
+    try:
+        input_device = devices[0]['name']  # Replace with the correct index if needed
+        st.write(f"Selected device: {input_device}")
+    except IndexError:
+        st.error("⚠ No input device found.")
+        return None
+
+    # Record audio
+    try:
+        audio_data = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype='int16', device=input_device)
+        sd.wait()  # Wait until recording is finished
+        return audio_data
+    except Exception as e:
+        st.error(f"⚠ Error recording audio: {e}")
+        return None
 
 # ---------------- UI ----------------
 
@@ -110,33 +134,22 @@ if input_type == "Text":
 
 elif input_type == "Voice":
     st.write("🎙 Record your voice:")
-    webrtc_ctx = webrtc_streamer(
-        key="audio-input-demo",
-        mode=WebRtcMode.SENDRECV,
-        audio_processor_factory=AudioProcessor,
-        rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-    )
     
-    if webrtc_ctx.state.playing:
-        if webrtc_ctx.audio_receiver:
-            audio_data = webrtc_ctx.audio_receiver.get_audio()
-            if audio_data is not None:
-                st.write("🎧 Processing audio...")
-                text = speech_to_text_from_audio(audio_data)
-                if text:
-                    st.markdown(f"### 📝 *Transcribed Text:* {text}")
-                    detected_emotion = predict_bert_emotion(text)
-                    st.markdown(f"### 🎭 Detected Emotion: *{detected_emotion.capitalize()}*")
-                    st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
-                    if detected_emotion in video_links:
-                        st.video(video_links[detected_emotion])
-                else:
-                    st.warning("⚠ Could not detect any speech. Please try again.")
-        else:
-            st.warning("⚠ Waiting for audio...")
+    if st.button("Start Recording"):
+        audio_data = record_audio(duration=5)  # Record for 5 seconds
+        if audio_data is not None:
+            st.write("🎧 Processing your audio...")
 
-# ---------------- Sidebar Features ----------------
-st.sidebar.markdown("## 🌟 Features")
-st.sidebar.write("✅ Detect emotion from text or voice")  
-st.sidebar.write("🤖 AI-generated chatbot responses")  
-st.sidebar.write("📺 Video recommendations based on emotion")
+            # Convert audio to text
+            audio_bytes = io.BytesIO(audio_data.tobytes())  # Convert to a BytesIO object for recognition
+            text = speech_to_text_from_audio(audio_bytes)
+            
+            if text:
+                st.markdown(f"### 📝 *Transcribed Text:* {text}")
+                detected_emotion = predict_bert_emotion(text)
+                st.markdown(f"### 🎭 Detected Emotion: *{detected_emotion.capitalize()}*")
+                st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
+                if detected_emotion in video_links:
+                    st.video(video_links[detected_emotion])
+            else:
+                st.warning("⚠ Could not detect any speech. Please try again.")
