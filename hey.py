@@ -118,19 +118,20 @@ elif input_type == "Voice":
     )
     
     if webrtc_ctx.state.playing:
-        audio_data = webrtc_ctx.audio_receiver.get_audio()
-        if audio_data is not None:
-            st.write("🎧 Processing audio...")
-            text = speech_to_text_from_audio(audio_data)
-            if text:
-                st.markdown(f"### 📝 *Transcribed Text:* {text}")
-                detected_emotion = predict_bert_emotion(text)
-                st.markdown(f"### 🎭 Detected Emotion: *{detected_emotion.capitalize()}*")
-                st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
-                if detected_emotion in video_links:
-                    st.video(video_links[detected_emotion])
-            else:
-                st.warning("⚠ Could not detect any speech. Please try again.")
+        if webrtc_ctx.audio_receiver:
+            audio_data = webrtc_ctx.audio_receiver.get_audio()
+            if audio_data is not None:
+                st.write("🎧 Processing audio...")
+                text = speech_to_text_from_audio(audio_data)
+                if text:
+                    st.markdown(f"### 📝 *Transcribed Text:* {text}")
+                    detected_emotion = predict_bert_emotion(text)
+                    st.markdown(f"### 🎭 Detected Emotion: *{detected_emotion.capitalize()}*")
+                    st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
+                    if detected_emotion in video_links:
+                        st.video(video_links[detected_emotion])
+                else:
+                    st.warning("⚠ Could not detect any speech. Please try again.")
         else:
             st.warning("⚠ Waiting for audio...")
 
