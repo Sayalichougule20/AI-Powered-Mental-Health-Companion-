@@ -12,6 +12,7 @@ scipy==1.15.2
 nltk==3.9.1
 torch==2.6.0
 
+
 altair==4.0.0
 
 transformers>=4.26.0
