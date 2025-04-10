@@ -1,15 +1,17 @@
-streamlit-webrtc==0.40.0
 streamlit==1.10.0
+streamlit-webrtc==0.40.0
 streamlit-audiorecorder==0.0.6
-speechrecognition==3.14.2
+
+speechrecognition==3.8.1
 librosa==0.11.0
-torch==2.6.0
-pyaudio==0.2.11  # Add PyAudio
+soundfile==0.13.1
+sounddevice==0.5.1
+pyaudio==0.2.11
+
 scipy==1.15.2
 nltk==3.9.1
-soundfile==0.13.1
-transformers>=4.26.0
-sounddevice==0.5.1
+torch==2.6.0
+
 altair==4.0.0
-transformers
-scipy
+
+transformers>=4.26.0
