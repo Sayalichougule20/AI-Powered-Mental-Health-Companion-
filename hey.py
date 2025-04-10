@@ -13,7 +13,7 @@ import speech_recognition as sr
 import io
 
 st.set_page_config(page_title="EmotiCare - Emotion Based AI Chatbot", 
-                   page_icon="🎙", 
+                   page_icon="🎙️", 
                    layout="centered")
 
 # Download NLTK resources
@@ -75,12 +75,12 @@ def generate_response(emotion):
 
 def record_audio(duration=5, samplerate=16000):
     """ Record audio using sounddevice library and specify input device """
-    st.write("🎙 Recording your voice...")
+    st.write("🎙️ Recording your voice...")
 
     # List available devices and check if there are any input devices
     devices = sd.query_devices()
     if not devices:  # If no devices are found
-        st.error("⚠ No audio input devices found. Please check your microphone.")
+        st.error("⚠️ No audio input devices found. Please check your microphone.")
         return None
 
     # Display available devices for debugging
@@ -91,7 +91,7 @@ def record_audio(duration=5, samplerate=16000):
         input_device = devices[0]['name']  # Replace with the correct index if needed
         st.write(f"Selected device: {input_device}")
     except IndexError:
-        st.error("⚠ No input device found.")
+        st.error("⚠️ No input device found.")
         return None
 
     # Record audio
@@ -100,7 +100,7 @@ def record_audio(duration=5, samplerate=16000):
         sd.wait()  # Wait until recording is finished
         return audio_data
     except Exception as e:
-        st.error(f"⚠ Error recording audio: {e}")
+        st.error(f"⚠️ Error recording audio: {e}")
         return None
 
 # ---------------- UI ----------------
@@ -113,7 +113,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown('<p class="title">🎙 EmotiCare - Emotion Based AI Chatbot</p>', unsafe_allow_html=True)
+st.markdown('<p class="title">🎙️ EmotiCare - Emotion Based AI Chatbot</p>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">Detect emotions from your voice or text and receive personalized responses!</p>', unsafe_allow_html=True)
 
 st.sidebar.title("🔍 Choose Input Method")
@@ -125,15 +125,15 @@ if input_type == "Text":
         if user_text:
             with st.spinner("🔍 Analyzing Emotion..."):
                 detected_emotion = predict_bert_emotion(user_text)
-            st.markdown(f"### 🎭 Detected Emotion: *{detected_emotion.capitalize()}*")
+            st.markdown(f"### 🎭 Detected Emotion: **{detected_emotion.capitalize()}**")
             st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
             if detected_emotion in video_links:
                 st.video(video_links[detected_emotion])
         else:
-            st.warning("⚠ Please enter some text.")
+            st.warning("⚠️ Please enter some text.")
 
 elif input_type == "Voice":
-    st.write("🎙 Record your voice:")
+    st.write("🎙️ Record your voice:")
     
     if st.button("Start Recording"):
         audio_data = record_audio(duration=5)  # Record for 5 seconds
@@ -145,11 +145,11 @@ elif input_type == "Voice":
             text = speech_to_text_from_audio(audio_bytes)
             
             if text:
-                st.markdown(f"### 📝 *Transcribed Text:* {text}")
+                st.markdown(f"### 📝 **Transcribed Text:** _{text}_")
                 detected_emotion = predict_bert_emotion(text)
-                st.markdown(f"### 🎭 Detected Emotion: *{detected_emotion.capitalize()}*")
+                st.markdown(f"### 🎭 Detected Emotion: **{detected_emotion.capitalize()}**")
                 st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
                 if detected_emotion in video_links:
                     st.video(video_links[detected_emotion])
             else:
-                st.warning("⚠ Could not detect any speech. Please try again.")
+                st.warning("⚠️ Could not detect any speech. Please try again.")
