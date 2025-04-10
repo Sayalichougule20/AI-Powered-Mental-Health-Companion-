@@ -30,7 +30,7 @@ try:
 except Exception as e:
     st.error(f"❌ Failed to load BERT emotion model: {e}")
 
-# Emotion labels (customize as per your model training order)
+# Emotion labels
 bert_emotion_labels = ['anger', 'fear', 'joy', 'love', 'sadness', 'surprise']
 
 emotion_responses = {
@@ -45,20 +45,20 @@ emotion_responses = {
 video_links = {
     "anger": "https://youtu.be/66gH1xmXkzI?si=zDv3BIHqQqXYlEqx",
     "fear": "https://youtu.be/AETFvQonfV8?si=h7JWyBwTyYPKwqtc",
-    "joy": "https://youtu.be/OcmcptbsvzQ?si=hUQtzH0vRyGV5hmK",  # same as happy
-    "love": "https://youtu.be/UAaWoz9wJ_4?si=Qktt7mDUXRmFda5t",  # used calm/loving video
+    "joy": "https://youtu.be/OcmcptbsvzQ?si=hUQtzH0vRyGV5hmK",
+    "love": "https://youtu.be/UAaWoz9wJ_4?si=Qktt7mDUXRmFda5t",
     "sadness": "https://youtu.be/W937gFzsD-c?si=aT3DcRssJRdF0SeH",
     "surprise": "https://youtu.be/PE2GkSgOZMA?si=yZwanX7PC16C73SG"
 }
 
-# ---------------- Functions ----------------
+# -------- Functions --------
 
-def speech_to_text_from_audio(audio_data):
+def speech_to_text(audio_bytes):
     recognizer = sr.Recognizer()
-    with sr.AudioData(audio_data.tobytes(), 16000, 2) as source_audio:
+    with sr.AudioFile(audio_bytes) as source:
+        audio = recognizer.record(source)
         try:
-            text = recognizer.recognize_google(source_audio)
-            return text
+            return recognizer.recognize_google(audio)
         except sr.UnknownValueError:
             return None
 
@@ -74,36 +74,18 @@ def generate_response(emotion):
     return random.choice(emotion_responses.get(emotion, ["I'm here to chat! 😊"]))
 
 def record_audio(duration=5, samplerate=16000):
-    """ Record audio using sounddevice library and specify input device """
-    st.write("🎙️ Recording your voice...")
-
-    # List available devices and check if there are any input devices
-    devices = sd.query_devices()
-    if not devices:  # If no devices are found
-        st.error("⚠️ No audio input devices found. Please check your microphone.")
-        return None
-
-    # Display available devices for debugging
-    st.write(devices)  # Print devices in Streamlit UI
-
-    # Try to select the first available input device
     try:
-        input_device = devices[0]['name']  # Replace with the correct index if needed
-        st.write(f"Selected device: {input_device}")
-    except IndexError:
-        st.error("⚠️ No input device found.")
-        return None
-
-    # Record audio
-    try:
-        audio_data = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype='int16', device=input_device)
-        sd.wait()  # Wait until recording is finished
-        return audio_data
+        st.info("🎙️ Recording for {} seconds...".format(duration))
+        audio_data = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype='int16')
+        sd.wait()
+        wav_file = "temp_audio.wav"
+        wav.write(wav_file, samplerate, audio_data)
+        return wav_file
     except Exception as e:
-        st.error(f"⚠️ Error recording audio: {e}")
+        st.error(f"Recording failed: {e}")
         return None
 
-# ---------------- UI ----------------
+# -------- UI --------
 
 st.markdown("""
     <style>
@@ -123,33 +105,29 @@ if input_type == "Text":
     user_text = st.text_input("💬 Type your message:")
     if st.button("Analyze Emotion 🎭"):
         if user_text:
-            with st.spinner("🔍 Analyzing Emotion..."):
+            with st.spinner("🔍 Analyzing..."):
                 detected_emotion = predict_bert_emotion(user_text)
+                response = generate_response(detected_emotion)
             st.markdown(f"### 🎭 Detected Emotion: **{detected_emotion.capitalize()}**")
-            st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
+            st.success(f"🤖 Chatbot: {response}")
             if detected_emotion in video_links:
                 st.video(video_links[detected_emotion])
         else:
-            st.warning("⚠️ Please enter some text.")
+            st.warning("Please type a message.")
 
 elif input_type == "Voice":
-    st.write("🎙️ Record your voice:")
-    
-    if st.button("Start Recording"):
-        audio_data = record_audio(duration=5)  # Record for 5 seconds
-        if audio_data is not None:
-            st.write("🎧 Processing your audio...")
-
-            # Convert audio to text
-            audio_bytes = io.BytesIO(audio_data.tobytes())  # Convert to a BytesIO object for recognition
-            text = speech_to_text_from_audio(audio_bytes)
-            
-            if text:
-                st.markdown(f"### 📝 **Transcribed Text:** _{text}_")
-                detected_emotion = predict_bert_emotion(text)
-                st.markdown(f"### 🎭 Detected Emotion: **{detected_emotion.capitalize()}**")
-                st.success(f"🤖 Chatbot: {generate_response(detected_emotion)}")
-                if detected_emotion in video_links:
-                    st.video(video_links[detected_emotion])
-            else:
-                st.warning("⚠️ Could not detect any speech. Please try again.")
+    if st.button("Start Recording 🎙️"):
+        wav_file = record_audio(duration=5)
+        if wav_file:
+            with st.spinner("Processing audio..."):
+                text = speech_to_text(wav_file)
+                if text:
+                    detected_emotion = predict_bert_emotion(text)
+                    response = generate_response(detected_emotion)
+                    st.markdown(f"### 📝 Transcribed Text: _{text}_")
+                    st.markdown(f"### 🎭 Detected Emotion: **{detected_emotion.capitalize()}**")
+                    st.success(f"🤖 Chatbot: {response}")
+                    if detected_emotion in video_links:
+                        st.video(video_links[detected_emotion])
+                else:
+                    st.warning("Could not understand the audio. Try again.")
